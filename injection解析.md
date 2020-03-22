@@ -149,7 +149,7 @@ TAGGED  {
 	0:  [ {key => 'inject', value => 'id(缺省为参数名)'} ]
 }
 
-普通属性
+//普通属性
 
 TAGGED_PROP => [
     propertyKey : [ {key => 'inject', value => 'id(缺省为propertyKey)'} ]
@@ -157,7 +157,7 @@ TAGGED_PROP => [
 
 ```
 
-上面我们说过 inject 是基于 id 的注入. 在这里我们可以剧透一下, 具体 inject 的时候, 会根据 id 去对象工厂里面找对应的定义对象(下面会详细解释). 在这里我们只需要记住, inject 装饰器就保留了构造参数和普通属性的相关信息.
+上面我们说过 inject 是基于 id 的注入. 在这里我们可以剧透一下, 具体 inject 的时候, 会根据 id 去对象工厂里面找对应的定义对象(下面会详细解释). 在这里我们只需要记住, inject 装饰器就只保留了构造参数和普通属性的相关信息.
 
 眼尖的朋友可能注意到了, 修饰构造参数的缺省为参数名,也就是说下面这个 value 应该是 barService. 
 
@@ -191,44 +191,48 @@ constructor(
 
 #### bind(id, target, options)
 
-观察上面装饰器可以发现, 现在他们是毫无关联的. 而这个 bind 就是把它们关联在一起.  生成一个 ObjectDefinition 对象,  
+观察上面装饰器可以发现, 现在他们是毫无关联的. 而这个 bind 就是把它们关联在一起.  生成一个 ObjectDefinition 对象,  如下
 
 ```js
  {
-			id: '指定的id或者(根据provide提供的驼峰或指定的id, 也就是上面TAGGED_CLS对应)'
-			path: '类对象/构造函数'
-			asynchronous: null,
-			autowire: null,
-			scope: 'singleton', // 默认为单例
-			initMethod: null,
-			destroyMethod: null,
-			constructorMethod: null,
-			export: null,
-			dependson:[],
-			// 构造参数
-			constructorArgs : [{
-				type: 'ref',
-				name: 'id(缺省为 propertyKey )'
-			}],
-            // 普通属性
-			properties: {
-				innerConfig : {
-					'参数名' =>  {
-						type:'ref',
-						name:'id(缺省为参数名)'
-					}
-				}
+	id: '指定的id或者(根据provide提供的驼峰或指定的id, 也就是上面TAGGED_CLS对应)'
+	path: '类对象/构造函数'
+	asynchronous: false, // 对应上面的 @async()
+	autowire: null,   // 对应上面的 @autowire(isAutowire)
+	scope: 'singleton', // 默认为单例 对应上面的 @scope(scope)
+	initMethod: null,  // 对应上面的 @init()
+	destroyMethod: null,  // 对应上面的 @destory()
+	constructorMethod: null,
+	export: null,
+	dependson:[],
+	// 构造参数
+	constructorArgs : [{
+		type: 'ref',
+		name: 'id(缺省为参数名)'
+	}],
+    // 普通属性
+	properties: {
+		innerConfig : {
+			'参数名' =>  {
+				type:'ref',
+				name:'id(缺省为参数名)'
 			}
+		}
+	}
 }
 ```
 
-具体就是通过 reflect-metadata 根据上面的 key, 获取对应的值,  比如根据 TAGGED 获取生成构造参数 constructorArgs 相关的,  根据 TAGGED_PROP 获取生成  properties 相关的. 而 @aysnc() @init() @destory() @scope(scope) @autowire(isAutowire) 这几个我们说过了都是在 OBJ_DEF_CLS 整个对应的 key 里面. 这里面生成一个个属性, 比如 asynchronous 对应 isAsync, autowire 对应 autowire.
+具体就是通过 reflect-metadata 根据上面的 key, 获取对应的值.
+
+比如根据`TAGGED`获取生成构造参数 constructorArgs 相关的, 根据`TAGGED_PROP`生成  properties 相关的. 
+
+而 @aysnc() @init() @destory() @scope(scope) @autowire(isAutowire) 这几个我们说过了都是在`OBJ_DEF_CLS`这个对应的 key 里面. 这里面生成一个个属性, 比如 asynchronous 对应 isAsync, autowire 对应 autowire.
 
 这里面比较困难的地方就是 properties.  实现的时候会查找原型链(也就是我们继承的时候), 遍历原型链上所有用 @Inject() 装饰的属性. 然后一起放到 innerConfig 里面.  比如 A 继承 B , 那么  Object.getPrototypeOf(O) === B, 我们就可以获取到 B, 然后就可以拿到 B 的一切. 无限遍历, 直到 等于 Function.prototype (一般来说, 有几种特殊情况, A 继承 null, undefined...). 
 
 
 
-顺便一提的是 bind 可以手动 options 属性, 这个对应的是   
+顺便一提的是 bind 可以手动 options 属性, 这个属性是   
 
 ```ts
 export interface ObjectDefinitionOptions {
@@ -255,22 +259,22 @@ this.registry.registerDefinition(id, definition);
 我们来看看这个 ObjectDefinitionRegistry  长什么样
 
 ```js
-	registry extends Map => {
-		singletonIds: [], 
+registry extends Map => {
+	singletonIds: [], 
 
-		registerDefinition(id, definition){
-			如果 definition 是单例 则 singletonIds push 该 id,
-			this.set(id, definition)
-		}
-		registerObject(){
-			this.set('id_default_' + id, target)
-		}
+	registerDefinition(id, definition){
+		如果 definition 是单例 则 singletonIds push 该 id,
+		this.set(id, definition)
 	}
+	registerObject(){
+		this.set('id_default_' + id, target)
+	}
+}
 ```
 
 
 
-下面我们注入实例的时候, 全部都在这里面找的.
+下面我们注入实例的时候, 全部都在这个registry 里面找的. 这也就是为什么 id 那么重要了.
 
 
 
@@ -324,30 +328,155 @@ container {
 }
 ```
 
-我们来详细分析一下 getAsync,  首先 container 初始化的时候可以有一个 parent container. 这个有什么用我们以后, 我们以后结合 midway 来讲.
+我们来详细分析一下 getAsync / get ,  这里面第一个差异就是 @async() 这个装饰器, get 里面会先检查是否是异步创建的, 如果为真则抛出异常, 强制要求我们用 getAsync . (@async已经被废弃, 不推荐使用, midway 全部用的都是 getAsync)
 
-首先我们根据 id 去 registry 获取对应的 ObjectDefinition , 因为我们跟对象相关的属性全部在这里面. 上面为什么说 injection 注入说根据 id 注入的. 具体讲就是 map.get(id). 如果该对象不存在, 则去 parent 去找. 找不到抛出以后.
+```js
+  get<T>(identifier: ObjectIdentifier, args?: any): T {
+	 ....
+    if (this.isAsync(identifier)) {
+      throw new Error(`${identifier} must use getAsync`);
+    }
+
+    const definition = this.registry.getDefinition(identifier);
+    if (!definition && this.parent) {
+      if (this.parent.isAsync(identifier)) {
+        throw new Error(`${identifier} must use getAsync`);
+      }
+
+     ...
+    }
+	...
+  }
+```
+
+
+
+首先 container 初始化的时候可以有一个 parent container. 这个有什么用我们以后, 我们以后结合 midway 来讲.
+
+接着我们根据 id 去 registry 获取对应的 ObjectDefinition , 因为我们跟对象相关的属性全部在这里面. 
+
+上面为什么说 injection 注入说根据 id 注入的. 具体讲就是 map.get(id). 如果该对象不存在, 则去 parent 去找. 找不到抛出异常.
 
 然后就是对象工厂根据 ObjectDefinition 来实例化了. 具体流程就是 
 
+
+
+* 如果该 definition是单例作用域( @scope( ScopeEnum.Singleton)), 判断 singletonCache是否有缓存, 如果有命中,返回实例对象. (这里的 singletonCache 也是一个 map, 专门用来存放单例对象的)
+
+
+
+* 初始化依赖 也就是 definition.dependson,(这个没卵用, injection 没看到任何可以赋值的地方, midway 也没用到)
+
 ```js
-// 如果是单例, 判断 singletonCache 有没有缓存, 如果有缓存,则命中
-// 初始化依赖 也就是  definition.dependson []
-// 初始化构造参数所需要的依赖
-// 执行, beforeCreateHandler(this, clzz, constructorArgs, this.context), 
-// 根据构造参数 创建对象
-// 如果是请求作用域, 则绑定 egg , ctx 属性, value 为 this.context.get('ctx')
-// 根据普通属性(创建依赖) 设置对象属性
-
-// 自动注入
-//  this.model = Autowire.createInject('fooModel') 这种形式
-//  this.fooModel = null; 这种形式 也会被注入...
-
-// 执行 afterCreateHandler (this, inst, this.context, defintion)
-// 执行 init 方法
-// 如果是单例作用域, 则 singletonCache 注册 该实例
-// 如果是请求作用域, 则 registry 注册 registerObject 该实例
+  // 预先初始化依赖
+    if (definition.hasDependsOn()) {
+      for (const dep of definition.dependsOn) {
+        await this.context.getAsync(dep, args);
+      }
+    }
 ```
+
+* 返回上面的 definition.path 对象.  一般就是 class 对象,  最早 injection 是使用 xml 注入的, 这里的 path 会是 string.  而且 definition.export 也就在这里面有用. 了解一下就行.
+
+```js
+const Clzz = definition.creator.load();
+```
+
+```js
+  load(): any {
+    let Clzz = null;
+    if (typeof this.definition.path === 'string') {
+      // 解析xml结果 默认 path = '' 需要兼容处理掉
+      if (!this.definition.path) {
+        return Clzz;
+      }
+      const path = this.definition.path;
+      if (this.definition.export) {
+        Clzz = require(path)[this.definition.export];
+      } else {
+        Clzz = require(path);
+      }
+    } else {
+      // if it is class and return direct
+      Clzz = this.definition.path;
+    }
+    return Clzz;
+  }
+```
+
+
+
+* 取出 definition.constructorArgs 相关信息, 对构造参数注入依赖, 也是重复这个流程
+
+```ts
+    const Clzz = definition.creator.load();
+    let constructorArgs;
+      if (definition.constructorArgs) {
+        constructorArgs = [];
+        for (const arg of definition.constructorArgs) {
+          constructorArgs.push(await this.resolveManagedAsync(arg));
+        }
+      }
+```
+
+
+
+* 执行前置钩子 beforeCreateHandler(this, clzz, constructorArgs, this.context) (midway 里面会用到, 可以先想想干吗用的)
+* 根据构造参数, 创建对象, 实际就是实例过程
+
+```js
+inst = await definition.creator.doConstructAsync(Clzz, constructorArgs);
+
+...
+async doConstructAsync(Clzz: any, args?: any): Promise<any> {
+    let inst;
+    if (this.definition.constructMethod) {
+      const fn = Clzz[this.definition.constructMethod];
+        inst = fn.apply(Clzz, args);
+    } else {
+      inst = Reflect.construct(Clzz, args);
+    }
+    return inst;
+  }
+```
+
+* 如果是 definition 是请求作用域, 那么给 inst 赋值一个 ctx 属性 
+
+```js
+   Object.defineProperty(inst, 'ctx', {
+        value: this.context.get('ctx'),
+        writable: false,
+        enumerable: false,
+      });
+```
+
+* 取出 definition.properties 相关信息, 对普通注入依赖, 也是重复这个流程
+* 自动注入过程, 也就是上面的 @autowire(), 
+
+```js
+if (definition.isAutowire()) {
+      Autowire.patchInject(inst, this.context);
+      Autowire.patchNoDollar(inst, this.context);
+ }
+```
+
+这个是干什么的呢,  下面这两种形式也会根据 id 被注入
+
+```js
+constructor(){
+    //  this.model = Autowire.createInject('fooModel') 这种形式
+    //  this.fooModel = null; 这种形式 也会被注入...
+}
+```
+
+* 执行后置钩子 afterCreateHandler(this, inst, this.context, defintion) (midway 里面会用到, 可以先想想干吗用的)
+* 执行 @init() 所绑定的方法, 根据上面的流程我们可以知道 实例属性都已经注入完了
+
+* 如果是单例作用域, 则 singletonCache 注册该实例
+* 如果是请求作用域, 则 registry 注册 registerObject 该实例
+* 实例化对象完成, 返回该对象
+
+
 
 
 

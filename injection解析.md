@@ -108,9 +108,9 @@ provide(id?)
 
 ### inject(?id)
 
-上面的 provide 这个名字其实取的不好, 根据他的名字很难知道他是干嘛的. 而 inject 这个装饰器我们清楚很多, 使用这个装饰器, 他对应的属性就会自动被注入, 让我们看看他到底干了啥
+上面的 provide 这个名字其实取的不好, 根据他的名字很难知道他是干嘛的. 
 
-
+而 inject 这个装饰器我们清楚很多, 使用这个装饰器, 他对应的属性就会自动被注入, 让我们看看他到底干了啥
 
 ```ts
 @provide()
@@ -130,6 +130,47 @@ export class TestController {
 
 inject 可以用在两个地方, 对象属性和构造参数上面.  
 
+```ts
+function inject(identifier?: ObjectIdentifier) {
+  return function (target: any, propertyKey: string, index?: number): void {
+
+  };
+}
+```
+
+熟悉装饰器的朋友应该知道, 如果装饰器修饰普通属性是没有 index 属性的, 而且会把 propertyKey 传进来. 而修饰构造方法参数时候 index 会是参数索引值. propertyKey 会是 undefined
+
+而 inject 修饰这两个功能是一样的, 都是以某个 key, 存储参数名的信息
+
+```js
+
+// 构造参数 
+TAGGED  {
+	0:  [ {key => 'inject', value => 'id(缺省为参数名)'} ]
+}
+
+普通属性
+
+TAGGED_PROP => [
+    propertyKey : [ {key => 'inject', value => 'id(缺省为propertyKey)'} ]
+]
+
+```
+
+上面我们说过 inject 是基于 id 的注入. 在这里我们可以剧透一下, 具体 inject 的时候, 会根据 id 去对象工厂里面找对应的定义对象(下面会详细解释). 在这里我们只需要记住, inject 装饰器就保留了构造参数和普通属性的相关信息.
+
+眼尖的朋友可能注意到了, 修饰构造参数的缺省为参数名,也就是说下面这个 value 应该是 barService. 
+
+```js
+constructor(
+     @inject() barService: BarService
+  ){
+        
+}
+```
+
+ 而装饰器给我们的 propertyKey 只是 undefined. 那 injection 是怎么做得到的?
+
 可以思考看看, 
 
 可以思考看看, 
@@ -141,8 +182,6 @@ inject 可以用在两个地方, 对象属性和构造参数上面.
 可以思考看看, 
 
 答案就是用正则, 我们知道函数有个 toString 方法. injection 就是用正则匹配出来.
-
-
 
 
 

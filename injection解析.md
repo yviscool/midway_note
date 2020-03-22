@@ -332,7 +332,10 @@ container {
 
 ```js
   get<T>(identifier: ObjectIdentifier, args?: any): T {
-	 ....
+	if (this.registry.hasObject(identifier)) {
+       return this.registry.getObject(identifier);
+    }
+
     if (this.isAsync(identifier)) {
       throw new Error(`${identifier} must use getAsync`);
     }
@@ -351,7 +354,24 @@ container {
 
 
 
-首先 container 初始化的时候可以有一个 parent container. 这个有什么用我们以后, 我们以后结合 midway 来讲.
+首先 container 初始化的时候可以有一个 parent container. 这个有什么用我们以后讲.
+
+第一步如果 registry.registerObject 过该对象, 则直接返回. (这个用来获取一些工具类). 比如官网的例子
+
+```js
+// in global file
+import * as urllib from 'urllib';
+container.registerobject('httpclient', urllib);
+
+@provide()
+@controller()
+class A{
+    
+    @inject()
+    httpclient;
+    
+}
+```
 
 接着我们根据 id 去 registry 获取对应的 ObjectDefinition , 因为我们跟对象相关的属性全部在这里面. 
 
@@ -376,7 +396,7 @@ container {
     }
 ```
 
-* 返回上面的 definition.path 对象.  一般就是 class 对象,  最早 injection 是使用 xml 注入的, 这里的 path 会是 string.  而且 definition.export 也就在这里面有用. 了解一下就行.
+* 取出上面的 definition.path 对象.  一般就是 class 对象
 
 ```js
 const Clzz = definition.creator.load();
@@ -385,6 +405,7 @@ const Clzz = definition.creator.load();
 ```js
   load(): any {
     let Clzz = null;
+      //最早 injection 是使用 xml 注入的, 这里的 path 会是 string.  而且 definition.export 也就在这里面有用. 了解一下就行.
     if (typeof this.definition.path === 'string') {
       // 解析xml结果 默认 path = '' 需要兼容处理掉
       if (!this.definition.path) {
@@ -409,14 +430,14 @@ const Clzz = definition.creator.load();
 * 取出 definition.constructorArgs 相关信息, 对构造参数注入依赖, 也是重复这个流程
 
 ```ts
-    const Clzz = definition.creator.load();
-    let constructorArgs;
-      if (definition.constructorArgs) {
-        constructorArgs = [];
-        for (const arg of definition.constructorArgs) {
-          constructorArgs.push(await this.resolveManagedAsync(arg));
-        }
-      }
+const Clzz = definition.creator.load();
+let constructorArgs;
+if (definition.constructorArgs) {
+	constructorArgs = [];
+	for (const arg of definition.constructorArgs) {
+	  constructorArgs.push(await this.resolveManagedAsync(arg));
+	}
+}
 ```
 
 
@@ -430,6 +451,7 @@ inst = await definition.creator.doConstructAsync(Clzz, constructorArgs);
 ...
 async doConstructAsync(Clzz: any, args?: any): Promise<any> {
     let inst;
+    // 如果 definition 有指定 constructMethod 方法, 则用该方法实例化, (一般用不到)
     if (this.definition.constructMethod) {
       const fn = Clzz[this.definition.constructMethod];
         inst = fn.apply(Clzz, args);
@@ -440,14 +462,14 @@ async doConstructAsync(Clzz: any, args?: any): Promise<any> {
   }
 ```
 
-* 如果是 definition 是请求作用域, 那么给 inst 赋值一个 ctx 属性 
+* 如果是 definition 是请求作用域, 那么给 inst 赋值一个 ctx 属性. 
 
 ```js
-   Object.defineProperty(inst, 'ctx', {
+Object.defineProperty(inst, '_req_ctx', {
         value: this.context.get('ctx'),
         writable: false,
         enumerable: false,
-      });
+ });
 ```
 
 * 取出 definition.properties 相关信息, 对普通注入依赖, 也是重复这个流程
@@ -460,23 +482,24 @@ if (definition.isAutowire()) {
  }
 ```
 
-这个是干什么的呢,  下面这两种形式也会根据 id 被注入
+这个是干什么的呢,  也就是下面这两种形式也会根据 id 被注入
 
 ```js
 constructor(){
-    //  this.model = Autowire.createInject('fooModel') 这种形式
-    //  this.fooModel = null; 这种形式 也会被注入...
+    //  this.model = Autowire.createInject('fooModel') 这种形式也会被注入, 不推荐使用
+    //  this.fooModel = null; 这种形式也会被注入, id 就是 fooModel  不推荐使用
 }
 ```
 
 * 执行后置钩子 afterCreateHandler(this, inst, this.context, defintion) (midway 里面会用到, 可以先想想干吗用的)
-* 执行 @init() 所绑定的方法, 根据上面的流程我们可以知道 实例属性都已经注入完了
-
+* 执行 @init() 所绑定的方法, 根据上面的流程我们可以知道 所有属性都已经注入完了
 * 如果是单例作用域, 则 singletonCache 注册该实例
 * 如果是请求作用域, 则 registry 注册 registerObject 该实例
 * 实例化对象完成, 返回该对象
 
 
+
+总结就是根据  definition 对象, 拿出相关信息, 实例化对象. 其中 scope , 钩子函数, 还有 ctx .
 
 
 

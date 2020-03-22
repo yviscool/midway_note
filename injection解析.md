@@ -442,8 +442,18 @@ if (definition.constructorArgs) {
 
 
 
-* 执行前置钩子 beforeCreateHandler(this, clzz, constructorArgs, this.context) (midway 里面会用到, 可以先想想干吗用的)
-* 根据构造参数, 创建对象, 实际就是实例过程
+* 执行前置钩子 beforeCreateHandler(this, clzz, constructorArgs, this.context) 
+
+```js
+beforeCreateHandler = [];
+beforeEachCreated(fn) {
+    this.beforeCreateHandler.push(fn);
+}
+```
+
+钩子就是注册的一个函数, 在合适的实际调用传值而已, (midway 里面会用到, 可以先想想干吗用的)
+
+* 根据构造参数和 clzz 对象实例化对象. 
 
 ```js
 inst = await definition.creator.doConstructAsync(Clzz, constructorArgs);
@@ -462,7 +472,7 @@ async doConstructAsync(Clzz: any, args?: any): Promise<any> {
   }
 ```
 
-* 如果是 definition 是请求作用域, 那么给 inst 赋值一个 ctx 属性. 
+* 如果是 definition 是请求作用域, 那么给 inst 赋值一个 _req_ctx 属性. 
 
 ```js
 Object.defineProperty(inst, '_req_ctx', {
@@ -472,7 +482,14 @@ Object.defineProperty(inst, '_req_ctx', {
  });
 ```
 
-* 取出 definition.properties 相关信息, 对普通注入依赖, 也是重复这个流程
+* 取出 definition.properties 相关信息, 对普通注入依赖(也是重复这个流程), 然后给对象设置属性. 
+
+```js
+inst[ key ] = this.resolveManaged(identifier);
+```
+
+
+
 * 自动注入过程, 也就是上面的 @autowire(), 
 
 ```js
@@ -492,6 +509,15 @@ constructor(){
 ```
 
 * 执行后置钩子 afterCreateHandler(this, inst, this.context, defintion) (midway 里面会用到, 可以先想想干吗用的)
+
+```js
+afterCreateHandler = [];
+afterEachCreated(fn) {
+    this.afterCreateHandler.push(fn);
+}
+// 同上
+```
+
 * 执行 @init() 所绑定的方法, 根据上面的流程我们可以知道 所有属性都已经注入完了
 * 如果是单例作用域, 则 singletonCache 注册该实例
 * 如果是请求作用域, 则 registry 注册 registerObject 该实例
@@ -499,8 +525,77 @@ constructor(){
 
 
 
-总结就是根据  definition 对象, 拿出相关信息, 实例化对象. 其中 scope , 钩子函数, 还有 ctx .
+总结 container.get(id) 就是根据 id 取出  definition 对象, 拿出相关信息, 实例化对象.
 
+其中可能让人比较困惑就是 scope 作用域,  钩子函数. 
 
+#### scope 作用域
 
-明天更新一些细节, 和补充说明. 坑有点多..........
+scope 的作用域有三种
+
+```ts
+export enum ScopeEnum {
+  Singleton = 'Singleton', // injection 默认是单例
+  Request = 'Request',  // midway  默认是 请求作用域
+  Prototype = 'Prototype',
+}
+```
+
+通过流程我们知道, 所谓的作用域就是一个标记.
+
+单例标记能体现的只有 singletonCache 这个 map , 如果工厂实例化的时候有缓存则取出来没有则在实例化结束的时候存储起来.
+
+请求标记能体现的就是 registry 这个 map, 这个 map 也是放我们 definition 对象, 只不过请求标记有一个前缀不一样(下面的 registerObject),  和单例标记一样如果工厂实例化的时候有缓存则取出来没有则在实例化结束的时候存储起来.
+
+```js
+registry extends Map => {
+	singletonIds: [], 
+
+	registerDefinition(id, definition){
+		如果 definition 是单例 则 singletonIds push 该 id,
+		this.set(id, definition)
+	}
+	registerObject(){
+		this.set('id_default_' + id, target)
+	}
+}
+```
+
+而原型作用域通过我们上面流程所知, 是没有缓存的, 所以每次 get 的时候都是新的对象.
+
+那么乍一看, 单例标记和请求标记好像没有什么区别. 别着急, 这一点我们得和 parent container 和 egg 的 context 结合到一起在看的出来. 
+
+#### 钩子函数
+
+按照上面的流程, 钩子函数分两种, 一种前置, 一种后置, 而且执行的位置也比较巧妙.
+
+**前置钩子是在我们 new 之前做的. 而后置钩子是在 autowire 之后也就是属性全部注入完成之后执行的.**
+
+```js
+// 前置钩子
+for (const handler of this.beforeCreateHandler) {
+  handler.call(this, Clzz, constructorArgs, this.context);
+}
+.....
+.....
+
+// 后置钩子
+for (const handler of this.afterCreateHandler) {
+  handler.call(this, inst, this.context, definition);
+}
+```
+
+还记得上面的 new 流程吗, 根据构造参数和 clzz 对象实例化对象. 
+
+```js
+async doConstructAsync(Clzz: any, args?: any): Promise<any> {
+    let inst;
+    inst = Reflect.construct(Clzz, args);
+    return inst;
+}
+```
+
+而前置钩子会接受构造参数 constructorArgs , 这意味着 constructorArgs  可能会发生改变. 
+
+聪明的朋友肯定想到了, 这里就先不剧透了.
+

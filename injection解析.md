@@ -17,6 +17,8 @@ reflect-metadata , js 原型链
 
 xxxx.prototype 有个属性叫做 constructor 指向构造函数
 
+继承的时候 `__proto__` 和 `prototype` 指向
+
 ****
 
 
@@ -63,7 +65,7 @@ TAGGED_CLS : {
 initOrGetObjectDefProps(target);
 ```
 
-这个初始化了什么的, 基本和上面的一样, 讲这个之前要和下面几个装饰器打交道
+这个初始化了什么呢? 基本和上面的一样, 讲这个之前要和下面几个装饰器打交道
 
 #### @aysnc() @init() @destory() @scope(scope) @autowire(isAutowire)
 
@@ -138,7 +140,7 @@ function inject(identifier?: ObjectIdentifier) {
 }
 ```
 
-熟悉装饰器的朋友应该知道, 如果装饰器修饰普通属性是没有 index 属性的, 而且会把 propertyKey 传进来. 而修饰构造方法参数时候 index 会是参数索引值. propertyKey 会是 undefined
+熟悉装饰器的朋友应该知道, 如果装饰器修饰普通属性是没有 index 属性的, 而且会把 propertyKey (也就是参数名)传进来. 而修饰构造方法参数时候 index 会是参数索引值. propertyKey 会是 undefined
 
 而 inject 修饰这两个功能是一样的, 都是以某个 key, 存储参数名的信息
 
@@ -157,7 +159,7 @@ TAGGED_PROP => [
 
 ```
 
-上面我们说过 inject 是基于 id 的注入. 在这里我们可以剧透一下, 具体 inject 的时候, 会根据 id 去对象工厂里面找对应的定义对象(下面会详细解释). 在这里我们只需要记住, inject 装饰器就只保留了构造参数和普通属性的相关信息.
+上面我们说过 inject 是基于 id 的注入. 在这里我们可以剧透一下, 具体通过容器实例化的时候, 会根据 id 去对象工厂里面找对应的定义对象(下面会详细解释). 在这里我们只需要记住, inject 装饰器就只保留了构造参数和普通属性的相关信息.
 
 眼尖的朋友可能注意到了, 修饰构造参数的缺省为参数名,也就是说下面这个 value 应该是 barService. 
 
@@ -228,7 +230,7 @@ constructor(
 
 而 @aysnc() @init() @destory() @scope(scope) @autowire(isAutowire) 这几个我们说过了都是在`OBJ_DEF_CLS`这个对应的 key 里面. 这里面生成一个个属性, 比如 asynchronous 对应 isAsync, autowire 对应 autowire.
 
-这里面比较困难的地方就是 properties.  实现的时候会查找原型链(也就是我们继承的时候), 遍历原型链上所有用 @Inject() 装饰的属性. 然后一起放到 innerConfig 里面.  比如 A 继承 B , 那么  Object.getPrototypeOf(O) === B, 我们就可以获取到 B, 然后就可以拿到 B 的一切. 无限遍历, 直到 等于 Function.prototype (一般来说, 有几种特殊情况, A 继承 null, undefined...). 
+这里面比较困难的地方就是 properties.  实现的时候会查找原型链(也就是我们继承的时候), 遍历原型链上所有用 @Inject() 装饰的属性. 然后一起放到 innerConfig 里面.  比如 A 继承 B , 那么  Object.getPrototypeOf(O) === B, 我们就可以获取到 B, 然后就可以拿到 B 的一切. 无限遍历, 直到 等于 Function.prototype (一般来说这样的,但 源码有几种特殊情况,A 继承 null, undefined...). 
 
 
 
@@ -282,7 +284,7 @@ registry extends Map => {
 
 #### get 或者 getAsync 
 
-这两个基本一毛一样, 只是将类实例化的时候, 某些方法能 await .
+这两个基本一毛一样, 具体区别下面讲
 
 我们来看看 container 这个对象有什么
 
@@ -304,7 +306,9 @@ container {
 	
 	}
     
-	bind (){}
+	bind (){
+        // 关联所有装饰器, 生成一个 ObjectDefinition 对象
+    }
 
     async getAsync<T>(identifier: ObjectIdentifier, args?: any): Promise<T> {
 
@@ -356,7 +360,7 @@ container {
 
 首先 container 初始化的时候可以有一个 parent container. 这个有什么用我们以后讲.
 
-第一步如果 registry.registerObject 过该对象, 则直接返回. (这个用来获取一些工具类). 比如官网的例子
+第一步如果 registry.registerObject 过该对象, 则直接返回. (这个用来获取一些工具类, 或者框架常用属性配置对象其他等等). 比如官网的例子
 
 ```js
 // in global file
@@ -375,7 +379,7 @@ class A{
 
 接着我们根据 id 去 registry 获取对应的 ObjectDefinition , 因为我们跟对象相关的属性全部在这里面. 
 
-上面为什么说 injection 注入说根据 id 注入的. 具体讲就是 map.get(id). 如果该对象不存在, 则去 parent 去找. 找不到抛出异常.
+上面为什么说 injection 注入说根据 id 注入的. 具体讲就是 map.get(id). 如果该对象不存在, 则去 parent container 去找. 找不到抛出异常.
 
 然后就是对象工厂根据 ObjectDefinition 来实例化了. 具体流程就是 
 
@@ -451,12 +455,12 @@ beforeEachCreated(fn) {
 }
 ```
 
-钩子就是注册的一个函数, 在合适的实际调用传值而已, (midway 里面会用到, 可以先想想干吗用的)
+钩子就是注册的一个函数, 在合适的时机调用传值而已, (midway 里面会用到, 可以先想想干吗用的)
 
 * 根据构造参数和 clzz 对象实例化对象. 
 
 ```js
-inst = await definition.creator.doConstructAsync(Clzz, constructorArgs);
+let inst = await definition.creator.doConstructAsync(Clzz, constructorArgs);
 
 ...
 async doConstructAsync(Clzz: any, args?: any): Promise<any> {
@@ -466,7 +470,7 @@ async doConstructAsync(Clzz: any, args?: any): Promise<any> {
       const fn = Clzz[this.definition.constructMethod];
         inst = fn.apply(Clzz, args);
     } else {
-      inst = Reflect.construct(Clzz, args);
+      inst = Reflect.construct(Clzz, args); // 等同 new Object(...args)
     }
     return inst;
   }
@@ -518,7 +522,7 @@ afterEachCreated(fn) {
 // 同上
 ```
 
-* 执行 @init() 所绑定的方法, 根据上面的流程我们可以知道 所有属性都已经注入完了
+* 执行 @init() 所绑定的方法, 根据上面的流程我们可以知道所有属性都已经注入完了. (就可以自由发挥了)
 * 如果是单例作用域, 则 singletonCache 注册该实例
 * 如果是请求作用域, 则 registry 注册 registerObject 该实例
 * 实例化对象完成, 返回该对象

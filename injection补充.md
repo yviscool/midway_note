@@ -37,3 +37,8 @@ export class UserController {
 
 至于为什么这一层要交给 injection 来做, 而不是 midway 来做(实际上 midway 2.0 就直接把 injection 集成了). 一部分原因这个容器可以是通用的, 第三方纯碎的 web 框架都可以使用. 比如纯 express / koa . 
 
+
+
+### 总结
+
+injection 源码比较直, 除去 xml 的部分, 阅读起来还是很顺畅的,  没有什么特别难的地方. 以后来补充一下和 nest 依赖注入的区别( 挖坑 ).

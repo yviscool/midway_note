@@ -140,7 +140,7 @@ function loadApplicationContext() {
     this.containerLoader = new Container();
       
     
-      const fileResults = globby.sync(['**/**.ts', '**/**.tsx', '**/**.js', '!**/**.d.ts'].concat(opts.pattern || []), {
+      const fileResults = globby.sync(['**/**.ts', '**/**.js'], {
         cwd: baseDir,
         ignore: [
           '**/node_modules/**',
@@ -154,7 +154,6 @@ function loadApplicationContext() {
 
       for (const name of fileResults) {
         const file = path.join(dir, name);
-        debug(`binding file => ${file}`);
         const exports = require(file);
         this.containerLoader.bind(exports);
       }
@@ -241,7 +240,7 @@ function newLoadRouter(){
 
 这样我们就完成路由的解耦. 
 
-当然这里面不止路由.  里面还有很多工作没做 @cofig @logger @plugin z这些东西具体是怎么实现的. 下面来讲. 比较无聊. 
+当然这里面不止路由.  里面还有很多工作没做 @cofig @logger @plugin 以及一个很神奇的东西 @inject('ctx') 这些是怎么实现的.
 
 ```js
  public generateController(controllerMapping: string, routeArgsInfo?: RouterParamValue[]): Middleware {

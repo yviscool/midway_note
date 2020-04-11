@@ -3,7 +3,8 @@
 
 ## 序言
 
-injection 是 midway 的核心,  通过它来做管理依赖注入, 看源码时候也是重中之重, 后面 midway 都是围绕他结合 egg 扩展了一个 midway 出来, 如果无法理解他, 下面的东西就无法讲起, 在对 injection 进行解析之前, 各位应该先对 injection 有个基本的了解. [injection文档]([https://midwayjs.org/midway/ioc.html#%E6%B3%A8%E5%85%A5%E5%B7%B2%E6%9C%89%E5%AF%B9%E8%B1%A1](https://midwayjs.org/midway/ioc.html#注入已有对象))
+injection 是 midway 的核心,  通过它来做管理依赖注入, 看源码时候也是重中之重, 后面 midway 都是围绕他结合 egg 扩展了一个 midway 出来, 如果无法理解他, 下面的东西就无法讲起, 在对 injection 进行解析之前, 各位应该先对 injection 有个基本的了解. 
+[injection文档]([https://midwayjs.org/midway/ioc.html#%E6%B3%A8%E5%85%A5%E5%B7%B2%E6%9C%89%E5%AF%B9%E8%B1%A1](https://midwayjs.org/midway/ioc.html))
 
 
 

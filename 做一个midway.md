@@ -137,26 +137,26 @@ this.loadApplicationContext(); // 我们扩展的阶段
 
 // 扫描 baseDir 下面 ts js 文件, 然后自动绑定. 
 function loadApplicationContext() {
-    this.containerLoader = new Container();
-      
     
-      const fileResults = globby.sync(['**/**.ts', '**/**.js'], {
-        cwd: baseDir,
-        ignore: [
-          '**/node_modules/**',
-          '**/logs/**',
-          '**/run/**',
-          '**/public/**',
-          '**/view/**',
-          '**/views/**'
-        ]),
-      });
+    this.containerLoader = new Container();
+    
+    const fileResults = globby.sync(['**/**.ts', '**/**.js'], {
+      cwd: baseDir,
+      ignore: [
+        '**/node_modules/**',
+        '**/logs/**',
+        '**/run/**',
+        '**/public/**',
+        '**/view/**',
+        '**/views/**'
+      ]),
+    });
 
-      for (const name of fileResults) {
-        const file = path.join(dir, name);
-        const exports = require(file);
-        this.containerLoader.bind(exports);
-      }
+    for (const name of fileResults) {
+      const file = path.join(dir, name);
+      const exports = require(file);
+      this.containerLoader.bind(exports);
+    }
 }
 ```
 
@@ -210,19 +210,20 @@ function newLoadRouter(){
    
     // 注册 router
     for (const target of controllerModules){
-        	// 获取 controller 这些 path 
-         	const routerPath = getClassMetadata(CONTROLLER_KEY, target)
+       	// 获取 controller 这些 path 
+        const routerPath = getClassMetadata(CONTROLLER_KEY, target)
         	
-            router = new Router({ sensitive: true, prefix: routerPath }, this);
+        const router = new Router({ sensitive: true, prefix: routerPath }, this);
         
         	// 获取 @Get @Post 这些 path 数据.
-            const webRouterInfo = getClassMetadata(WEB_ROUTER_KEY, target);
+        const webRouterInfo = getClassMetadata(WEB_ROUTER_KEY, target);
         	
-        	// 根据 webRouterInfo 生成 methodCallback, 然后用 router 注册
-            methodCallback = generateController(webRouterInfo);
-        	router.verb(paramPath, methodCallback)
+        	// 根据 webRouterInfo 生成 methodCallback,
+        const methodCallback = generateController(webRouterInfo);
+            // 然后用 router 注册
+      	router.verb(paramPath, methodCallback)
         
-   		    routers.push(router)
+   		routers.push(router)
     }
 
   
